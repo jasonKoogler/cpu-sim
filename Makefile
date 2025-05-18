@@ -3,6 +3,7 @@
 BINARY_NAME=multicore-sim
 BUILD_DIR=./build
 CONFIG_PATH=./configs/default.yaml
+CYCLES=1000
 
 all: clean build
 
@@ -19,11 +20,11 @@ clean:
 
 run: build
 	@echo "Running multicore processor simulator..."
-	@$(BUILD_DIR)/$(BINARY_NAME) --config $(CONFIG_PATH)
+	@$(BUILD_DIR)/$(BINARY_NAME) --config $(CONFIG_PATH) --cycles $(CYCLES)
 
 run-verbose: build
 	@echo "Running multicore processor simulator with verbose output..."
-	@$(BUILD_DIR)/$(BINARY_NAME) --config $(CONFIG_PATH) --v
+	@$(BUILD_DIR)/$(BINARY_NAME) --config $(CONFIG_PATH) --cycles $(CYCLES) --v
 
 test:
 	@echo "Running tests..."

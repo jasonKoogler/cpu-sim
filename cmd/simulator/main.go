@@ -5,19 +5,27 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/jasonKoogler/cpu-sim/internal/config"
+	"github.com/jasonKoogler/cpu-sim/internal/simulator"
 )
 
 func main() {
 	configPath := flag.String("config", "configs/default.yaml", "Path to the configuration file")
 	verbose := flag.Bool("v", false, "Enable verbose output")
+	numCycles := flag.Int64("cycles", 100, "Number of cycles to simulate")
 	flag.Parse()
 
 	logger := log.New(os.Stdout, "", log.LstdFlags)
 
 	if *verbose {
 		logger.SetFlags(log.LstdFlags | log.Lmicroseconds | log.Lshortfile)
+	}
+
+	if *numCycles <= 0 {
+		logger.Fatalf("Invalid cycle count: %d", *numCycles)
 	}
 
 	logger.Println("Multicore Processor Simulator")
@@ -40,4 +48,37 @@ func main() {
 	fmt.Printf("	L1 Cache: %d KB, %d-way, %d cycles\n", cfg.L1Size, cfg.L1Associativity, cfg.L1Latency)
 	fmt.Printf("	L2 Cache: %d KB, %d-way, %d cycles\n", cfg.L2Size, cfg.L2Associativity, cfg.L2Latency)
 	fmt.Printf("	L3 Cache: %d KB, %d-way, %d cycles\n", cfg.L3Size, cfg.L3Associativity, cfg.L3Latency)
+
+	sim, err := simulator.New(cfg)
+	if err != nil {
+		logger.Fatalf("Failed to initialize simulator: %v", err)
+	}
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		logger.Printf("Starting simulation for %d cycles...", *numCycles)
+
+		if err := sim.Run(*numCycles); err != nil {
+			logger.Fatalf("Simulation failed: %v", err)
+		}
+
+		stats := sim.GetStatistics()
+		fmt.Println("\nSimulation Statistics:")
+		fmt.Printf("	Total Cycles: %d\n", stats.TotalCycles)
+		fmt.Printf("	Instructions Executed: %d\n", stats.InstructionsExecuted)
+		fmt.Printf("	IPC: %.2f\n", stats.IPC)
+		fmt.Printf("	Cache Hit Rate: %.2f%%\n", stats.CacheHitRate*100)
+		fmt.Printf("	Core Utilization: %.2f%%\n", stats.CoreUtilization[0]*100)
+		fmt.Printf("	Memory Access Latency: %.2f cycles\n", stats.MemoryAccessLatency)
+		fmt.Printf("	Interconnect Utilization: %.2f%%\n", stats.InterconnectUtilization*100)
+
+		os.Exit(0)
+	}()
+
+	<-sigChan
+	logger.Println("Received termination signal. Shutting down...")
+	sim.Shutdown()
+	logger.Println("Simulation terminated successfully")
 }
