@@ -1,0 +1,32 @@
+# Default Simulator Configuration
+
+# Core configuration
+numCores: 4
+clockFrequency: 3000 # MHz (3 GHz)
+isa: "RISC-V"
+pipelineDepth: 5
+
+# Memory hierarchy
+l1Size: 32 # KB
+l1Associativity: 8
+l1Latency: 3 # cycles
+
+l2Size: 256 # KB
+l2Associativity: 8
+l2Latency: 12 # cycles
+
+l3Size: 8192 # KB (8 MB)
+l3Associativity: 16
+l3Latency: 40 # cycles
+
+memoryLatency: 200 # cycles
+
+# Cache coherence protocol (MESI, MOESI, MSI, MESIF, None)
+coherenceProtocol: "MESI"
+
+# Interconnect
+interconnectType: "ring" # bus, ring, mesh, crossbar, torus
+interconnectBandwidth: 256 # GB/s
+
+# Workload
+workloadPath: "workloads/default.bin"
