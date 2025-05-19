@@ -15,7 +15,7 @@ import (
 func main() {
 	configPath := flag.String("config", "configs/default.yaml", "Path to the configuration file")
 	verbose := flag.Bool("v", false, "Enable verbose output")
-	numCycles := flag.Int64("cycles", 100, "Number of cycles to simulate")
+	numCycles := flag.Int64("cycles", 1000, "Number of cycles to simulate")
 	flag.Parse()
 
 	logger := log.New(os.Stdout, "", log.LstdFlags)
@@ -73,6 +73,11 @@ func main() {
 		fmt.Printf("	Core Utilization: %.2f%%\n", stats.CoreUtilization[0]*100)
 		fmt.Printf("	Memory Access Latency: %.2f cycles\n", stats.MemoryAccessLatency)
 		fmt.Printf("	Interconnect Utilization: %.2f%%\n", stats.InterconnectUtilization*100)
+
+		fmt.Println("\nCore Utilization:")
+		for i, util := range stats.CoreUtilization {
+			fmt.Printf("	Core %d: %.2f%%\n", i, util*100)
+		}
 
 		os.Exit(0)
 	}()
