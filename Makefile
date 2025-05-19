@@ -26,6 +26,16 @@ run-verbose: build
 	@echo "Running multicore processor simulator with verbose output..."
 	@$(BUILD_DIR)/$(BINARY_NAME) --config $(CONFIG_PATH) --cycles $(CYCLES) --v
 
+pipeline: build
+	@echo "Showing pipeline structure..."
+	@$(BUILD_DIR)/$(BINARY_NAME) --config $(CONFIG) --show-pipeline
+
+# Run with deep pipeline configuration
+deep-pipeline: build
+	@echo "Running with deep pipeline configuration..."
+	@$(BUILD_DIR)/$(BINARY_NAME) --config configs/deep-pipeline.yaml --cycles $(CYCLES) --show-pipeline
+
+
 test:
 	@echo "Running tests..."
 	@go test -v ./...

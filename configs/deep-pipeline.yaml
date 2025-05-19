@@ -1,0 +1,32 @@
+# Deep Pipeline Configuration
+
+# Core configuration
+numCores: 2
+clockFrequency: 4000 # MHz (4 GHz)
+isa: "x86"
+pipelineDepth: 14 # Deep pipeline
+
+# Memory hierarchy
+l1Size: 64 # KB
+l1Associativity: 8
+l1Latency: 3 # cycles
+
+l2Size: 512 # KB
+l2Associativity: 8
+l2Latency: 12 # cycles
+
+l3Size: 8192 # KB (8 MB)
+l3Associativity: 16
+l3Latency: 40 # cycles
+
+memoryLatency: 200 # cycles
+
+# Cache coherence protocol
+coherenceProtocol: "MESI"
+
+# Interconnect
+interconnectType: "ring"
+interconnectBandwidth: 256 # GB/s
+
+# Workload
+workloadPath: "workloads/default.bin"

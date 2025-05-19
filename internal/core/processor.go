@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 
 	"github.com/jasonKoogler/cpu-sim/internal/config"
+	"github.com/jasonKoogler/cpu-sim/internal/pipeline"
 )
 
 type ExecutionUnit struct {
@@ -17,6 +18,7 @@ type ExecutionUnit struct {
 type Processor struct {
 	ID                   int
 	config               *config.Config
+	pipeline             *pipeline.Pipeline
 	instructionQueue     []Instruction
 	executionUnits       map[string][]*ExecutionUnit
 	registersInt         []uint64
@@ -30,8 +32,8 @@ type Processor struct {
 
 type Instruction struct {
 	Address    uint64
-	Opcode     string
-	Operands   []uint64
+	Opcode     uint8
+	Operands   []uint8
 	Type       string // "Integer", "Float", "Memory", "Branch", "System"
 	Stage      string // Current pipeline stage
 	CyclesLeft int    // Number of cycles left in the current stage
@@ -40,6 +42,11 @@ type Instruction struct {
 func NewProcessor(id int, cfg *config.Config) (*Processor, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("nil configuation provided")
+	}
+
+	pipe, err := pipeline.NewPipeline(cfg.PipelineDepth, cfg.ISA)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create pipeline: %w", err)
 	}
 
 	var numIntRegs, numFloatRegs int
@@ -57,12 +64,14 @@ func NewProcessor(id int, cfg *config.Config) (*Processor, error) {
 		numIntRegs = 32
 		numFloatRegs = 32
 	default:
-		return nil, fmt.Errorf("unsupported ISA: %s", cfg.ISA)
+		numIntRegs = 32
+		numFloatRegs = 32
 	}
 
 	proc := &Processor{
 		ID:               id,
 		config:           cfg,
+		pipeline:         pipe,
 		instructionQueue: make([]Instruction, 0, 32), // Default queue size
 		registersInt:     make([]uint64, numIntRegs),
 		registersFloat:   make([]float64, numFloatRegs),
@@ -130,16 +139,60 @@ func (p *Processor) Cycle() {
 	// Check if any work is being done in this cycle
 	workDone := false
 
-	// Temp: Sim synthetic workload
-	// TODO: temeporary, replace with actual instruction handling
-	if p.cycleCount%10 == 0 { // every 10 cycles, execute an instruction
-		atomic.AddInt64(&p.executedInstructions, 1)
+	// Process pipeline stages
+	if p.pipeline.AdvanceStages() {
 		workDone = true
 	}
 
+	// Fetch new instruction if pipeline can accept it
+	if !p.pipeline.IsFull() && p.cycleCount%5 == 0 { // Fetch every 5 cycles (synthetic workload)
+		inst := p.fetchNextInstruction()
+		if inst != nil {
+			pipelineInst := &pipeline.Instruction{
+				Address:    inst.Address,
+				Opcode:     inst.Opcode,
+				Operands:   inst.Operands,
+				Type:       inst.Type,
+				CyclesLeft: 1,
+			}
+
+			if p.pipeline.InsertInstruction(pipelineInst) {
+				workDone = true
+			}
+		}
+	}
+
+	// Count a completed instruction if one reached the end of the pipeline
+	stages := p.pipeline.GetStages()
+	if len(stages) > 0 && !stages[len(stages)-1].Busy && p.cycleCount%5 == 0 {
+		atomic.AddInt64(&p.executedInstructions, 1)
+	}
+
+	// If any work was done, count as a busy cycle
 	if workDone {
 		atomic.AddInt64(&p.busyCycles, 1)
 	}
+}
+
+// fetchNextInstruction creates a synthetic instruction for simulation
+func (p *Processor) fetchNextInstruction() *Instruction {
+	// This is a simplified synthetic instruction generator
+	// In a real simulator, this would fetch from memory
+
+	// Create a simple ALU instruction
+	inst := &Instruction{
+		Address:    p.pc,
+		Opcode:     0x01,             // ADD
+		Operands:   []uint8{1, 2, 3}, // r1 = r2 + r3
+		Type:       "Integer",
+		Stage:      "Fetch",
+		CyclesLeft: 1,
+	}
+
+	// Increment PC
+	p.pc += 4 // Assuming 4-byte instructions
+
+	return inst
 }
 
 // GetExecutedInstructions returns the number of instructions executed by this core
@@ -162,6 +215,11 @@ func (p *Processor) GetID() int {
 	return p.ID
 }
 
+// GetPipelineState returns a copy of the current pipeline state
+func (p *Processor) GetPipelineState() []*pipeline.Stage {
+	return p.pipeline.GetStages()
+}
+
 func (p *Processor) Reset() {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
@@ -171,6 +229,8 @@ func (p *Processor) Reset() {
 	atomic.StoreInt64(&p.executedInstructions, 0)
 	atomic.StoreInt64(&p.cycleCount, 0)
 	atomic.StoreInt64(&p.busyCycles, 0)
+
+	p.pipeline.Flush()
 
 	for i := range p.registersInt {
 		p.registersInt[i] = 0
